@@ -16,7 +16,7 @@ import (
 type context struct {
 	TgToken     string `env:"TG_TOKEN,required"`
 	Template    string `env:"TEMPLATE,required"`
-	ChatId      int64  `env:"CHAT_ID,required"`
+	ChatID      int64  `env:"CHAT_ID,required"`
 	Socks5Proxy string `env:"SOCKS5_PROXY"`
 
 	Bot              *tgbotapi.BotAPI
@@ -36,8 +36,8 @@ type papertrailSavedSearch struct {
 	ID            int64
 	Name          string
 	Query         string
-	HtmlEditUrl   string
-	HtmlSearchUrl string
+	HTMLEditURL   string
+	HTMLSearchURL string
 }
 
 type papertrailPayload struct {
@@ -62,7 +62,9 @@ func (ctx *context) getBotAPI() (*tgbotapi.BotAPI, error) {
 }
 
 func (ctx *context) handler(w http.ResponseWriter, r *http.Request) {
-	if r.Body == nil {
+	data := r.FormValue("payload")
+
+	if data == "" {
 		log.Println("Catch request without body")
 		http.Error(w, "Please send a request body", 400)
 		return
@@ -70,12 +72,9 @@ func (ctx *context) handler(w http.ResponseWriter, r *http.Request) {
 
 	var payload papertrailPayload
 
-	err := json.NewDecoder(r.Body).Decode(&payload)
-
-	if err != nil {
+	if err := json.Unmarshal([]byte(data), &payload); err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), 400)
-		return
 	}
 
 	buf := bytes.NewBufferString("")
@@ -84,10 +83,16 @@ func (ctx *context) handler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	msg := tgbotapi.NewMessage(ctx.ChatId, buf.String())
-	ctx.Bot.Send(msg)
+	msg := tgbotapi.NewMessage(ctx.ChatID, buf.String())
 
-	fmt.Fprintf(w, "%+v", payload)
+	if _, err := ctx.Bot.Send(msg); err != nil {
+		log.Println(err)
+		http.Error(w, "interval error", 500)
+	}
+
+	if _, err := fmt.Fprintf(w, "%+v", payload); err != nil {
+		log.Println(err)
+	}
 }
 
 func main() {
@@ -108,5 +113,8 @@ func main() {
 
 	http.HandleFunc("/", ctx.handler)
 	log.Println("Listening :5555")
-	http.ListenAndServe(":5555", nil)
+
+	if err := http.ListenAndServe(":5555", nil); err != nil {
+		log.Fatal(err)
+	}
 }
