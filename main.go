@@ -63,6 +63,7 @@ func (ctx *context) getBotAPI() (*tgbotapi.BotAPI, error) {
 
 func (ctx *context) handler(w http.ResponseWriter, r *http.Request) {
 	if r.Body == nil {
+		log.Println("Catch request without body")
 		http.Error(w, "Please send a request body", 400)
 		return
 	}
@@ -72,6 +73,7 @@ func (ctx *context) handler(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&payload)
 
 	if err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), 400)
 		return
 	}
